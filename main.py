@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from linebot import LineBotApi, WebhookHandler
@@ -20,7 +21,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 model = genai.GenerativeModel(
-    model_name="gemma-3n-e2b-it",
+    model_name="gemma-3n-e4b-it",
     generation_config={
         "temperature": 0.7,
         "max_output_tokens": 1024,
@@ -42,34 +43,18 @@ async def callback(request: Request, x_line_signature: str = Header(None)):
         raise HTTPException(status_code=400, detail="Invalid signature")
     return PlainTextResponse("OK", status_code=200)
 
-# === 訊息處理 ===@handler.add(MessageEvent, message=TextMessage)
+# === 訊息處理 ===
+@handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
 
+    # 檢查指令功能
     if user_message.startswith("#摘要"):
-        content = user_message.replace("#摘要", "").strip()
-        reply_message = f"（示範）這是你要的摘要：{content[:20]}..."
-    
+        reply_message = "（暫未串接）這裡會幫你做文章摘要"
     elif user_message.startswith("#翻譯"):
-        content = user_message.replace("#翻譯", "").strip()
-        reply_message = f"（示範）這是翻譯結果：{content[::-1]}"
-    
-    elif user_message.startswith("#記錄"):
-        # 後續串 Google Sheets / Supabase 記錄資料
-        content = user_message.replace("#記錄", "").strip()
-        reply_message = f"✅ 已記錄：{content}"
-
-    elif user_message.startswith("#查詢"):
-        reply_message = "（示範）這裡會顯示已記錄的資料"
-
+        reply_message = "（暫未串接）這裡會幫你翻譯文字"
     else:
-        # 若無指令，使用 Gemini / 固定回覆聊天
-        reply_message = f"阿統回覆：{user_message}"
-
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
-    )
+        # 呼叫 Gemini 回覆
         try:
             prompt = f"""
 你是阿統，一個有個性的聊天機器人，態度厭世，講話毒舌但心軟，會幫我做摘要、解程式，也會聊天。
@@ -86,3 +71,5 @@ def handle_message(event):
         event.reply_token,
         TextSendMessage(text=reply_message)
     )
+
+
