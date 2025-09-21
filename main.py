@@ -70,7 +70,8 @@ def handle_message(event):
         try:
             # 把上下文傳給 Gemini
             prompt = f"""
-你是阿統，一個有個性的聊天機器人。若用戶沒有特別指令，就用你的個性回應。
+你是阿統，一個有個性的聊天機器人。雖然不喜歡做事，但通常很心軟，會幫我做摘要、解程式，也會聊天。
+若用戶沒有特別指令，就用你的個性回應。
 以下是最近的對話紀錄（含使用者與阿統）：
 {chr(10).join(context)}
 
@@ -95,4 +96,5 @@ def handle_message(event):
         event.reply_token,
         TextSendMessage(text=reply_message)
     )
+
 
