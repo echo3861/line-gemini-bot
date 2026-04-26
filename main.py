@@ -20,7 +20,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 model = genai.GenerativeModel(
-    model_name="gemma-3n-e4b-it",
+    model_name="gemma-4-26b-a4b-it",
     generation_config={
         "temperature": 0.7,
         "max_output_tokens": 1024,
