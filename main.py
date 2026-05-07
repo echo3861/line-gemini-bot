@@ -90,7 +90,7 @@ def handle_message(event):
             user_context[user_id] = context
 
         except Exception as e:
-            reply_message = f"目前無法使用 Gemini，已切換簡易回覆：{user_message}"
+            reply_message = f"阿統急診室報告：{str(e)} "
 
     line_bot_api.reply_message(
         event.reply_token,
