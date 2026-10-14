@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Request, Header, HTTPException
+import os
+import traceback
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import PlainTextResponse
+from google import genai  # ✅ 升級為新版官方 SDK
+from google.genai import types
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
-import google.generativeai as genai
-import os
 
 app = FastAPI()
 
@@ -15,25 +17,22 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# === Gemini 設定 ===
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
-
-model = genai.GenerativeModel(
-    model_name="gemma-4-31b-it",
-    generation_config={
-        "temperature": 0.7,
-        "max_output_tokens": 1024,
-    }
-)
+# === Gemini 新版 SDK 設定 ===
+# 會自動讀取環境變數 GEMINI_API_KEY
+client = genai.Client()
 
 # === 全域 dict 保存上下文 ===
 user_context = {}  # {user_id: [msg1, msg2, ...]}
 
+
 # === Render 健康檢查 ===
 @app.get("/")
 async def root():
-    return {"status": "OK", "message": "LINE Gemini Bot is running with context."}
+    return {
+        "status": "OK",
+        "message": "LINE Gemini Bot is running with context.",
+    }
+
 
 # === LINE Webhook ===
 @app.post("/callback")
@@ -44,6 +43,7 @@ async def callback(request: Request, x_line_signature: str = Header(None)):
     except InvalidSignatureError:
         raise HTTPException(status_code=400, detail="Invalid signature")
     return PlainTextResponse("OK", status_code=200)
+
 
 # === 訊息處理 ===
 @handler.add(MessageEvent, message=TextMessage)
@@ -68,7 +68,7 @@ def handle_message(event):
         reply_message = "（暫未串接）這裡會幫你翻譯文字"
     else:
         try:
-            # 把上下文傳給 Gemini
+            # 把上下文傳給 AI
             prompt = f"""
 你是阿統，一個有個性的聊天機器人。雖然不喜歡做事，但通常很心軟，會幫我做摘要、解程式，也會聊天。
 若用戶沒有特別指令，就用你的個性回應。
@@ -80,7 +80,16 @@ def handle_message(event):
 
 請根據上下文繼續回應。
 """
-            response = model.generate_content(prompt)
+            # ✅ 新版語法：呼叫 client.models.generate_content
+            # 保留你的 Gemma 模型名稱與生成參數設定
+            response = client.models.generate_content(
+                model="gemma-4-31b-it",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=1024,
+                ),
+            )
             reply_message = response.text
 
             # 把 AI 回覆也存入上下文
@@ -90,11 +99,10 @@ def handle_message(event):
             user_context[user_id] = context
 
         except Exception as e:
-            reply_message = f"阿統急診室報告：{str(e)} "
+            # ✅ 加上完整的 Traceback 輸出，方便在 Render 上抓排錯細節
+            print("❌ 阿統出錯詳情：\n", traceback.format_exc())
+            reply_message = f"阿統急診室報告：{str(e)}"
 
     line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
+        event.reply_token, TextSendMessage(text=reply_message)
     )
-
-
