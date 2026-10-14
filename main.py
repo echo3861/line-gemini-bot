@@ -83,7 +83,7 @@ def handle_message(event):
             # ✅ 新版語法：呼叫 client.models.generate_content
             # 保留你的 Gemma 模型名稱與生成參數設定
             response = client.models.generate_content(
-                model="gemma-4-31b-it",
+                model="gemma-4-31b",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.7,
