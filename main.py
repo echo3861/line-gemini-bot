@@ -7,18 +7,6 @@ from google.genai import types
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from google import genai
-
-# 初始化 Client
-client = genai.Client(api_key="你的_API_KEY")
-
-print("=== 🎯 你的 API Key 真正支援的文字模型清單 ===")
-try:
-    for model in client.models.list():
-        # 印出所有可用模型的完整 ID
-        print(f"👉 {model.name}")
-except Exception as e:
-    print(f"查詢失敗：{e}")
 
 app = FastAPI()
 
@@ -95,7 +83,7 @@ def handle_message(event):
             # ✅ 新版語法：呼叫 client.models.generate_content
             # 保留你的 Gemma 模型名稱與生成參數設定
             response = client.models.generate_content(
-                model="gemini-3.1-flash-live-preview",
+                model="gemini-3.8-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.7,
