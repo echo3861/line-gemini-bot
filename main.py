@@ -1,5 +1,6 @@
 import os
 import traceback
+from openai import OpenAI
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from google import genai  # ✅ 升級為新版官方 SDK
@@ -17,9 +18,15 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# === Gemini 新版 SDK 設定 ===
-# 會自動讀取環境變數 GEMINI_API_KEY
+# === AI 雙引擎設定（全部自動讀取環境變數，絕不外洩金鑰） ===
+# 1. Google Gemini Client（自動讀取 GEMINI_API_KEY）
 client = genai.Client()
+
+# 2. NVIDIA NIM Client（自動讀取 NVIDIA_API_KEY）
+nvidia_client = OpenAI(
+    base_url="https://integrate.api.nvidia.com/v1",
+    api_key=os.environ.get("NVIDIA_API_KEY"),
+)
 
 # === 全域 dict 保存上下文 ===
 user_context = {}  # {user_id: [msg1, msg2, ...]}
@@ -30,7 +37,7 @@ user_context = {}  # {user_id: [msg1, msg2, ...]}
 async def root():
     return {
         "status": "OK",
-        "message": "LINE Gemini Bot is running with context.",
+        "message": "LINE Bot is running with context.",
     }
 
 
@@ -80,17 +87,35 @@ def handle_message(event):
 
 請根據上下文繼續回應。
 """
-            # ✅ 新版語法：呼叫 client.models.generate_content
-            # 保留你的 Gemma 模型名稱與生成參數設定
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
+            try:
+                # 【第一順位：主力】MiniMax M3.1 Flash（秒回＋中文人設語感最自然）
+                nv_response = nvidia_client.chat.completions.create(
+                    model="minimaxai/minimax-m3.1-flash",
+                    messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
-                    max_output_tokens=1024,
-                ),
-            )
-            reply_message = response.text
+                    max_tokens=1024,
+                    timeout=10,  # 10 秒沒回應就立刻換下一位
+                )
+                reply_message = nv_response.choices[0].message.content
+
+            except Exception as e_mm:
+                # 【第二順位：跨平台備援】Google Gemini 3.8 Flash
+                print(f"⚠️ MiniMax 異常 ({e_mm})，自動切換至 Google Gemini...")
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-3.8-flash",
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            temperature=0.7,
+                            max_output_tokens=1024,
+                        ),
+                    )
+                    reply_message = response.text
+
+                except Exception as e_gem:
+                    # 【第三順位：保底防線】雙引擎全忙線時的阿統專屬回應
+                    print(f"❌ 雙引擎皆失敗 ({e_gem})")
+                    reply_message = "嘖，今天網路大塞車，我大腦暫時連線不到，過 10 秒再敲我一次啦！"
 
             # 把 AI 回覆也存入上下文
             context.append(f"阿統: {reply_message}")
