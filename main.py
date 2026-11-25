@@ -94,7 +94,7 @@ def handle_message(event):
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
                     max_tokens=1024,
-                    timeout=10,  # 10 秒沒回應就立刻換下一位
+                    timeout=20,  # 20 秒沒回應就立刻換下一位
                 )
                 reply_message = nv_response.choices[0].message.content
 
